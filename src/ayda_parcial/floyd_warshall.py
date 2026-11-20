@@ -107,6 +107,21 @@ def format_next_hop(result: FloydWarshallResult) -> str:
     return _format_table(result, "MATRIZ DE RECONSTRUCCIÓN (próximo vértice)", values)
 
 
+def format_query(result: FloydWarshallResult, source: str, target: str) -> str:
+    if source not in result.distances or target not in result.distances:
+        raise ValueError(f"Vértice desconocido: {source} o {target}")
+    distance = result.distances[source][target]
+    if distance == INF:
+        return f"{source} → {target}: no alcanzable"
+    route = result.path(source, target)
+    return "\n".join(
+        [
+            f"{source} → {target}: distancia {distance}",
+            f"  Camino: {' → '.join(route) if route else 'No alcanzable'}",
+        ]
+    )
+
+
 def format_report(
     result: FloydWarshallResult,
     edges: Sequence[Edge],
@@ -122,9 +137,7 @@ def format_report(
         "",
     ]
     for source, target in queries:
-        route = result.path(source, target)
-        lines.append(f"{source} → {target}: distancia {result.distances[source][target]}")
-        lines.append(f"  Camino: {' → '.join(route) if route else 'No alcanzable'}")
+        lines.append(format_query(result, source, target))
 
     lines += ["", "B) CICLO NEGATIVO", ""]
     if result.has_negative_cycle():

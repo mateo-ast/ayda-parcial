@@ -1,7 +1,12 @@
 from collections.abc import Callable
 
 from ayda_parcial.data import read_numbers
-from ayda_parcial.floyd_warshall import floyd_warshall, format_report as format_graph_report
+from ayda_parcial.floyd_warshall import (
+    FloydWarshallResult,
+    floyd_warshall,
+    format_query,
+    format_report as format_graph_report,
+)
 from ayda_parcial.graph import EDGES, QUERIES, VERTICES
 from ayda_parcial.max_subarray import run_report as format_max_subarray_report
 from ayda_parcial.quantiles import run_report as format_quantiles_report
@@ -58,6 +63,20 @@ def spellchecker_flow() -> None:
 def floyd_warshall_flow() -> None:
     result = floyd_warshall(VERTICES, EDGES)
     print(format_graph_report(result, EDGES, QUERIES))
+    graph_query_flow(result)
+
+
+def graph_query_flow(result: FloydWarshallResult) -> None:
+    print("\nConsulta de distancia y camino mínimo.")
+    while True:
+        source = input("Vértice origen (enter para volver al menú): ").strip().upper()
+        if not source:
+            break
+        target = input("Vértice destino: ").strip().upper()
+        if source not in result.vertices or target not in result.vertices:
+            print(f"Vértice inválido. Válidos: {', '.join(result.vertices)}")
+            continue
+        print(format_query(result, source, target))
 
 
 def word_search_flow() -> None:
