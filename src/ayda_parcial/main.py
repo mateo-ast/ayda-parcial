@@ -4,13 +4,21 @@ from ayda_parcial.data import DATA_FILE, generate_data, read_data
 from ayda_parcial.floyd_warshall import floyd_warshall, format_report as format_graph_report
 from ayda_parcial.graph import EDGES, QUERIES, VERTICES
 from ayda_parcial.spellchecker import analyze, format_report, select
+from ayda_parcial.word_search import (
+    MATRIX_FILE,
+    WORDS as SEARCH_WORDS,
+    find_words,
+    format_report as format_word_search_report,
+    read_matrix,
+)
 
 MENU = """
 1. Corrector ortográfico (consigna 1)
 2. Floyd-Warshall (consigna 2)
-3. Generar datos
-4. Ver datos cargados
-5. Salir
+3. Búsqueda de palabras (consigna 3)
+4. Generar datos
+5. Ver datos cargados
+6. Salir
 """
 
 
@@ -23,6 +31,20 @@ def spellchecker_flow() -> None:
 def floyd_warshall_flow() -> None:
     result = floyd_warshall(VERTICES, EDGES)
     print(format_graph_report(result, EDGES, QUERIES))
+
+
+def word_search_flow() -> None:
+    word = input("Palabra a buscar (enter para las 5 de la consigna): ").strip()
+    words = (word,) if word else SEARCH_WORDS
+    try:
+        matrix = read_matrix()
+    except FileNotFoundError:
+        print(f"No se encontró el archivo {MATRIX_FILE}.")
+        return
+    except ValueError as error:
+        print(f"La matriz no es válida: {error}.")
+        return
+    print(format_word_search_report(matrix, find_words(matrix, words)))
 
 
 def generate_data_flow() -> None:
@@ -56,10 +78,12 @@ def main() -> None:
         elif option == "2":
             floyd_warshall_flow()
         elif option == "3":
-            generate_data_flow()
+            word_search_flow()
         elif option == "4":
-            show_data_flow()
+            generate_data_flow()
         elif option == "5":
+            show_data_flow()
+        elif option == "6":
             print("Hasta luego.")
             break
         else:
