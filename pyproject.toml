@@ -5,6 +5,12 @@ description = "Programa con algoritmos sobre un conjunto de datos"
 requires-python = ">=3.10"
 dependencies = []
 
+[project.scripts]
+ayda-parcial = "ayda_parcial.main:main"
+
+[dependency-groups]
+dev = ["pyinstaller>=6.0"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
