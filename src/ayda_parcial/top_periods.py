@@ -1,14 +1,18 @@
 from array import array
 from collections.abc import Sequence
 
+from ayda_parcial.chart import block_sums, signed_bars
 from ayda_parcial.data import read_numbers
 from ayda_parcial.max_subarray import Period
 from ayda_parcial.metrics import (
     Metrics,
+    count_label,
     format_bytes,
     format_float,
     format_int,
     format_table,
+    percentage,
+    sign_counts,
     timer,
 )
 
@@ -94,6 +98,59 @@ def select_top_periods(values: Sequence[int], k: int = 10) -> tuple[list[Period]
     return periods, metrics
 
 
+def format_periods_chart(
+    values: Sequence[int],
+    periods: Sequence[Period],
+    width: int = 64,
+    height: int = 9,
+) -> str:
+    sums, size = block_sums(values, width)
+    marks = ["▒"] * len(sums)
+    for index, period in enumerate(periods):
+        first = min(len(sums) - 1, period.start // size)
+        last = min(len(sums) - 1, period.end // size)
+        digit = str((index + 1) % 10)
+        for column in range(first, last + 1):
+            marks[column] = digit
+    lines, _, _ = signed_bars(sums, marks, height)
+
+    negatives, zeros, positives = sign_counts(values)
+    inside_negatives = inside_zeros = inside_positives = 0
+    inside_days = 0
+    for period in periods:
+        period_negatives, period_zeros, period_positives = sign_counts(
+            values[period.start : period.end + 1]
+        )
+        inside_negatives += period_negatives
+        inside_zeros += period_zeros
+        inside_positives += period_positives
+        inside_days += period.end - period.start + 1
+    negative_blocks = sum(1 for value in sums if value < 0)
+
+    return "\n".join(
+        [
+            f"Cada columna resume {count_label(size, 'día', 'días')} (suma neta del bloque).",
+            "1–0 = bloque dentro del periodo numerado   ▒ = resto   ─ = línea cero.",
+            "El resaltado usa bloques completos; si dos periodos comparten un bloque, gana el último.",
+            "",
+            *lines,
+            "",
+            f"Bloques: mín {format_int(min(sums))}, máx {format_int(max(sums))}, "
+            f"negativos {negative_blocks}/{len(sums)}.",
+            f"Días: {count_label(positives, 'positivo', 'positivos')} "
+            f"({percentage(positives, len(values))}%), "
+            f"{count_label(zeros, 'cero', 'ceros')}, "
+            f"{count_label(negatives, 'negativo', 'negativos')} "
+            f"({percentage(negatives, len(values))}%).",
+            f"Dentro de los {len(periods)} periodos "
+            f"({format_int(inside_days)} días): "
+            f"{count_label(inside_positives, 'positivo', 'positivos')}, "
+            f"{count_label(inside_zeros, 'cero', 'ceros')}, "
+            f"{count_label(inside_negatives, 'negativo', 'negativos')}.",
+        ]
+    )
+
+
 def run_report(values: Sequence[int], k: int = 10) -> str:
     periods, metrics = select_top_periods(values, k)
     n = len(values)
@@ -146,6 +203,10 @@ def run_report(values: Sequence[int], k: int = 10) -> str:
             "",
             f"Utilidad total de los {k} periodos: {format_int(total)}",
             f"Suma directa de los valores del arreglo: {format_int(sum(values))}",
+            "",
+            "D) REPRESENTACIÓN GRÁFICA",
+            "",
+            format_periods_chart(values, periods),
         ]
     )
 

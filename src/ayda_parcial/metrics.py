@@ -31,6 +31,20 @@ def format_bytes(size: int) -> str:
     return f"{size / (1024 * 1024):,.1f} MB"
 
 
+def sign_counts(values: Sequence[int]) -> tuple[int, int, int]:
+    negatives = sum(1 for value in values if value < 0)
+    zeros = sum(1 for value in values if value == 0)
+    return negatives, zeros, len(values) - negatives - zeros
+
+
+def count_label(value: int, singular: str, plural: str) -> str:
+    return f"{format_int(value)} {singular if value == 1 else plural}"
+
+
+def percentage(count: int, total: int) -> str:
+    return format_float(count / total * 100)
+
+
 def format_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
     widths = [
         max([len(headers[index])] + [len(row[index]) for row in rows])

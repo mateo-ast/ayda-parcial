@@ -55,7 +55,10 @@ def _show_report(builder: Callable[[list[int]], str], values: list[int]) -> None
 
 
 def spellchecker_flow() -> None:
-    word = input("Palabra a corregir (enter para programaceón): ").strip() or "programaceón"
+    word = (
+        input("Palabra a corregir (enter para programaceón): ").strip()
+        or "programaceón"
+    )
     candidates = analyze(word)
     print(format_report(word, candidates, select(candidates)))
 

@@ -2,13 +2,17 @@ import math
 import random
 from collections.abc import Callable, Sequence
 
+from ayda_parcial.chart import signed_bars
 from ayda_parcial.data import read_numbers
 from ayda_parcial.metrics import (
     Metrics,
+    count_label,
     format_bytes,
     format_float,
     format_int,
     format_table,
+    percentage,
+    sign_counts,
     timer,
 )
 
@@ -258,6 +262,94 @@ def _validation_lines(
     return lines
 
 
+def format_distribution_chart(
+    values: Sequence[int],
+    quantiles: dict[str, int | float],
+    width: int = 64,
+    height: int = 9,
+) -> str:
+    low, high = min(values), max(values)
+    span = max(abs(low), abs(high), 1)
+    size = max(1, math.ceil(span / max(1, width // 2)))
+    ranges: list[tuple[int, int]] = []
+    if low < 0:
+        ranges.extend(
+            (start, min(-1, start + size - 1)) for start in range(low, 0, size)
+        )
+    negative_bins = len(ranges)
+    zero_index = len(ranges) if low <= 0 <= high else None
+    if zero_index is not None:
+        ranges.append((0, 0))
+    positive_base = len(ranges)
+    ranges.extend(
+        (start, min(high, start + size - 1)) for start in range(1, high + 1, size)
+    )
+
+    def bin_of(value: int) -> int:
+        if value < 0:
+            return min(negative_bins - 1, (value - low) // size)
+        if value == 0 and zero_index is not None:
+            return zero_index
+        if value == 0:
+            return min(positive_base, len(ranges) - 1)
+        return min(len(ranges) - 1, positive_base + (value - 1) // size)
+
+    counts = [0] * len(ranges)
+    for value in values:
+        counts[bin_of(value)] += 1
+
+    columns: list[int] = []
+    marks: list[str] = []
+    for index, (start, end) in enumerate(ranges):
+        if start < 0:
+            columns.append(-counts[index])
+            marks.append("▒")
+        elif start == 0 == end:
+            columns.append(0)
+            marks.append("0")
+        else:
+            columns.append(counts[index])
+            marks.append("█")
+
+    lines, gutter, zero_row = signed_bars(columns, marks, height)
+    if zero_index is not None:
+        position = gutter + 1 + zero_index
+        lines[zero_row] = (
+            lines[zero_row][:position] + "0" + lines[zero_row][position + 1 :]
+        )
+
+    markers = ["·"] * len(ranges)
+    if zero_index is not None:
+        markers[zero_index] = "0"
+    for key, char in (("p50", "M"), ("p90", "9"), ("p95", "5")):
+        markers[bin_of(int(quantiles[key]))] = char
+    lines.append(" " * (gutter + 1) + "".join(markers))
+
+    negatives, zeros, positives = sign_counts(values)
+    quantile_text = ", ".join(
+        f"{char} = {key} {_format_quantile(quantiles[key])}"
+        for key, char in (("p50", "M"), ("p90", "9"), ("p95", "5"))
+    )
+
+    return "\n".join(
+        [
+            f"Cada columna resume {count_label(size, 'valor', 'valores')} de utilidad diaria.",
+            "▒ = negativos   █ = positivos   0 = ceros   ─ = separación   M/9/5 = cuantiles.",
+            "La altura es la cantidad de días; los ceros se ubican sobre la línea cero.",
+            "",
+            *lines,
+            "",
+            f"Rango diario: mín {format_int(low)}, máx {format_int(high)}.",
+            f"Marcadores: {quantile_text}; 0 = valor cero.",
+            f"Días: {count_label(positives, 'positivo', 'positivos')} "
+            f"({percentage(positives, len(values))}%), "
+            f"{count_label(zeros, 'cero', 'ceros')}, "
+            f"{count_label(negatives, 'negativo', 'negativos')} "
+            f"({percentage(negatives, len(values))}%).",
+        ]
+    )
+
+
 def run_report(values: Sequence[int], seed: int = 0) -> str:
     n = len(values)
     distinct = len(set(values))
@@ -335,7 +427,11 @@ def run_report(values: Sequence[int], seed: int = 0) -> str:
                 sorted_values, merge_quantiles, lomuto_quantiles, hoare_quantiles
             ),
             "",
-            "C) CONCLUSIONES",
+            "C) DISTRIBUCIÓN Y CUANTILES",
+            "",
+            format_distribution_chart(values, merge_quantiles),
+            "",
+            "D) CONCLUSIONES",
             "",
             "QuickSelect obtiene un solo cuantil en O(n) esperado, mientras Merge Sort",
             "paga O(n log n) porque ordena todo el arreglo; por eso suele ser preferible.",

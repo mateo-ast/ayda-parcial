@@ -2,16 +2,18 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from math import log2
 
+from ayda_parcial.chart import block_sums, signed_bars
 from ayda_parcial.data import read_numbers
 from ayda_parcial.metrics import (
     Metrics,
+    count_label,
     format_float,
     format_int,
     format_table,
+    percentage,
+    sign_counts,
     timer,
 )
-
-BLOCKS = "▁▂▃▄▅▆▇█"
 
 
 @dataclass(frozen=True)
@@ -105,39 +107,54 @@ def divide_and_conquer(values: Sequence[int]) -> tuple[Period, Metrics]:
     return result, metrics
 
 
-def format_ascii(values: Sequence[int], period: Period, width: int = 100) -> str:
-    size = max(1, (len(values) + width - 1) // width)
-    buckets = [
-        sum(values[start : start + size]) / len(values[start : start + size])
-        for start in range(0, len(values), size)
-    ]
-    minimum = min(buckets)
-    maximum = max(buckets)
-    span = maximum - minimum or 1
+def format_chart(
+    values: Sequence[int], period: Period, width: int = 64, height: int = 9
+) -> str:
+    sums, size = block_sums(values, width)
+    first = min(len(sums) - 1, period.start // size)
+    last = min(len(sums) - 1, period.end // size)
+    marks = ["█" if first <= index <= last else "▒" for index in range(len(sums))]
+    lines, gutter, _ = signed_bars(sums, marks, height)
 
-    sparkline = "".join(
-        BLOCKS[min(len(BLOCKS) - 1, int((value - minimum) / span * (len(BLOCKS) - 1) + 0.5))]
-        for value in buckets
+    brackets = ["·"] * len(sums)
+    if first == last:
+        brackets[first] = "#"
+    else:
+        brackets[first] = "["
+        brackets[last] = "]"
+        for index in range(first + 1, last):
+            brackets[index] = "="
+    lines.append(" " * (gutter + 1) + "".join(brackets))
+    lines.append(
+        " " * (gutter + 1 + first)
+        + f"días {format_int(period.start)} a {format_int(period.end)}"
     )
 
-    markers = ["·"] * len(buckets)
-    first = period.start // size
-    last = min(len(buckets) - 1, period.end // size)
-    if first == last:
-        markers[first] = "#"
-    else:
-        markers[first] = "["
-        markers[last] = "]"
-        for index in range(first + 1, last):
-            markers[index] = "#"
-    markline = "".join(markers)
+    negatives, zeros, positives = sign_counts(values)
+    inside_negatives, inside_zeros, inside_positives = sign_counts(
+        values[period.start : period.end + 1]
+    )
+    negative_blocks = sum(1 for value in sums if value < 0)
 
     return "\n".join(
         [
-            f"Cada carácter resume {format_int(size):>7} días (promedio de utilidad).",
-            f"Utilidad:  {sparkline}",
-            f"Periodo:   {markline}",
-            f"El tramo marcado cubre los buckets {first} a {last}.",
+            f"Cada columna resume {count_label(size, 'día', 'días')} (suma neta del bloque).",
+            "█ = dentro del periodo   ▒ = resto   ─ = línea cero.",
+            "El resaltado usa bloques completos; los días exactos se indican abajo.",
+            "",
+            *lines,
+            "",
+            f"Bloques: mín {format_int(min(sums))}, máx {format_int(max(sums))}, "
+            f"negativos {negative_blocks}/{len(sums)}.",
+            f"Días: {count_label(positives, 'positivo', 'positivos')} "
+            f"({percentage(positives, len(values))}%), "
+            f"{count_label(zeros, 'cero', 'ceros')}, "
+            f"{count_label(negatives, 'negativo', 'negativos')} "
+            f"({percentage(negatives, len(values))}%).",
+            f"Dentro del periodo: {count_label(inside_positives, 'positivo', 'positivos')}, "
+            f"{count_label(inside_zeros, 'cero', 'ceros')}, "
+            f"{count_label(inside_negatives, 'negativo', 'negativos')}; "
+            f"total {format_int(period.total)}.",
         ]
     )
 
@@ -212,9 +229,9 @@ def run_report(values: Sequence[int]) -> str:
             f"Sumas coincidentes entre ambos algoritmos: {'sí' if same_total else 'no'}",
             f"Índices coincidentes: {'sí' if same_range else 'no (puede haber empates)'}",
             "",
-            "C) REPRESENTACIÓN GRÁFICA SIMPLE",
+            "C) REPRESENTACIÓN GRÁFICA",
             "",
-            format_ascii(values, kadane_period),
+            format_chart(values, kadane_period),
         ]
     )
 
