@@ -1,12 +1,20 @@
 from pathlib import Path
 
 from ayda_parcial.data import DATA_FILE, generate_data, read_data
+from ayda_parcial.spellchecker import analyze, format_report, select
 
 MENU = """
-1. Generar datos
-2. Ver datos cargados
-3. Salir
+1. Corrector ortográfico (consigna 1)
+2. Generar datos
+3. Ver datos cargados
+4. Salir
 """
+
+
+def spellchecker_flow() -> None:
+    word = input("Palabra a corregir (enter para programaceón): ").strip() or "programaceón"
+    candidates = analyze(word)
+    print(format_report(word, candidates, select(candidates)))
 
 
 def generate_data_flow() -> None:
@@ -36,10 +44,12 @@ def main() -> None:
         print(MENU)
         option = input("Opción: ").strip()
         if option == "1":
-            generate_data_flow()
+            spellchecker_flow()
         elif option == "2":
-            show_data_flow()
+            generate_data_flow()
         elif option == "3":
+            show_data_flow()
+        elif option == "4":
             print("Hasta luego.")
             break
         else:
